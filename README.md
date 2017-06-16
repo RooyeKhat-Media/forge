@@ -667,9 +667,34 @@ console.log(encrypted.toHex());
 var decipher = forge.cipher.createDecipher('AES-CBC', key);
 decipher.start({iv: iv});
 decipher.update(encrypted);
-decipher.finish();
+var result = decipher.finish(); // check 'result' for true/false
 // outputs decrypted hex
 console.log(decipher.output.toHex());
+
+// decrypt bytes using CBC mode and streaming
+// Performance can suffer for large multi-MB inputs due to buffer
+// manipulations. Stream processing in chunks can offer significant
+// improvement. CPU intensive update() calls could also be performed with
+// setImmediate/setTimeout to avoid blocking the main browser UI thread (not
+// shown here). Optimal block size depends on the JavaScript VM and other
+// factors. Encryption can use a simple technique for increased performance.
+var encryptedBytes = encrypted.bytes();
+var decipher = forge.cipher.createDecipher('AES-CBC', key);
+decipher.start({iv: iv});
+var length = encryptedBytes.length;
+var chunkSize = 1024 * 64;
+var index = 0;
+var decrypted = '';
+do {
+  decrypted += decipher.output.getBytes();
+  var buf = forge.util.createBuffer(encryptedBytes.substr(index, chunkSize));
+  decipher.update(buf);
+  index += chunkSize;
+} while(index < length);
+var result = decipher.finish();
+assert(result);
+decrypted += decipher.output.getBytes();
+console.log(forge.util.bytesToHex(decrypted));
 
 // encrypt some bytes using GCM mode
 var cipher = forge.cipher.createCipher('AES-GCM', key);
